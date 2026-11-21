@@ -1,0 +1,107 @@
+erDiagram
+    USERS ||--o| CANDIDATE_PROFILES : owns
+    USERS ||--o{ RESUMES : uploads
+    USERS ||--o{ JOB_DESCRIPTIONS : creates
+    CANDIDATE_PROFILES ||--o{ RESUMES : has
+    CANDIDATE_PROFILES ||--o{ CANDIDATE_SKILLS : contains
+    RESUMES ||--o{ EXTRACTED_FIELDS : produces
+    JOB_DESCRIPTIONS ||--o{ JOB_SKILLS : contains
+    CANDIDATE_PROFILES ||--o{ INTERVIEW_SESSIONS : starts
+    JOB_DESCRIPTIONS ||--o{ INTERVIEW_SESSIONS : informs
+    RESUMES ||--o{ INTERVIEW_SESSIONS : contextualizes
+    INTERVIEW_SESSIONS ||--o{ INTERVIEW_QUESTIONS : contains
+    INTERVIEW_QUESTIONS ||--o{ ANSWERS : receives
+    ANSWERS ||--o| ANSWER_EVALUATIONS : produces
+    INTERVIEW_SESSIONS ||--o| INTERVIEW_REPORTS : summarizes
+    USERS ||--o{ CHAT_CONVERSATIONS : starts
+    CHAT_CONVERSATIONS ||--o{ CHAT_MESSAGES : contains
+    CANDIDATE_PROFILES ||--o{ SKILL_GAPS : has
+    JOB_DESCRIPTIONS ||--o{ SKILL_GAPS : defines
+    USERS {
+        int id PK
+        string email
+        string password_hash
+        string role
+        datetime created_at
+    }
+    CANDIDATE_PROFILES {
+        int id PK
+        int user_id FK
+        string target_role
+        string experience_level
+    }
+    RESUMES {
+        int id PK
+        int user_id FK
+        string file_name
+        string processing_status
+    }
+    EXTRACTED_FIELDS {
+        int id PK
+        int resume_id FK
+        string field_type
+        text field_value
+    }
+    JOB_DESCRIPTIONS {
+        int id PK
+        int user_id FK
+        string title
+        text description
+    }
+    JOB_SKILLS {
+        int id PK
+        int job_id FK
+        string skill_name
+        string requirement_type
+    }
+    CANDIDATE_SKILLS {
+        int id PK
+        int profile_id FK
+        string skill_name
+    }
+    SKILL_GAPS {
+        int id PK
+        int profile_id FK
+        int job_id FK
+        string skill_name
+    }
+    INTERVIEW_SESSIONS {
+        int id PK
+        int user_id FK
+        string target_role
+        string status
+    }
+    INTERVIEW_QUESTIONS {
+        int id PK
+        int session_id FK
+        text question_text
+        int sequence_no
+    }
+    ANSWERS {
+        int id PK
+        int question_id FK
+        text answer_text
+    }
+    ANSWER_EVALUATIONS {
+        int id PK
+        int answer_id FK
+        float overall_score
+        string evaluator_type
+    }
+    INTERVIEW_REPORTS {
+        int id PK
+        int session_id FK
+        float overall_score
+        string report_version
+    }
+    CHAT_CONVERSATIONS {
+        int id PK
+        int user_id FK
+        string title
+    }
+    CHAT_MESSAGES {
+        int id PK
+        int conversation_id FK
+        string sender_type
+        text message_text
+    }

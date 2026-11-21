@@ -1,0 +1,22 @@
+flowchart TD
+    A([Candidate registers or logs in]) --> B[Create or update profile]
+    B --> C[Upload resume and extract profile information]
+    C --> D[Optionally provide target job description]
+    D --> E[Analyze skills, experience, and job requirements]
+    E --> F{Choose activity}
+    F --> G[Configure mock interview]
+    F --> H[Open Career Guidance Chatbot]
+    G --> I[Generate role-specific questions]
+    I --> J[Start interview session]
+    J --> K[Submit answer]
+    K --> L{Need follow-up question?}
+    L -->|Yes| M[Generate contextual follow-up]
+    M --> K
+    L -->|No| N[Evaluate answer and aggregate session]
+    N --> O[Generate performance report]
+    O --> P[Persist interview history]
+    P --> Q[Show strengths, weaknesses, and improvement plan]
+    H --> R[Build candidate context]
+    R --> S[Generate structured career guidance response]
+    S --> T[Persist relevant conversation history]
+    T --> U[Show roadmap, skill gap, project, or career advice]

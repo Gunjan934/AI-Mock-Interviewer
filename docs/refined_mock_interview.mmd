@@ -1,0 +1,28 @@
+sequenceDiagram
+    actor C as Candidate
+    participant UI as Jinja2/JavaScript UI
+    participant F as Flask Blueprint
+    participant IS as Interview Service
+    participant AI as AIService / ModelProvider
+    participant DB as MySQL 8
+    C->>UI: Select role, experience, resume, job description
+    UI->>F: Submit interview configuration
+    F->>IS: Validate and create session
+    IS->>DB: Store interview session
+    IS->>AI: Request initial questions
+    AI-->>IS: Structured questions
+    IS->>DB: Store questions
+    F-->>UI: Display first question
+    C->>UI: Submit answer
+    UI->>F: POST answer
+    F->>IS: Store answer and update state
+    IS->>AI: Request evaluation and optional follow-up
+    AI-->>IS: Evaluation / follow-up result
+    IS->>DB: Store evaluation
+    IS-->>F: Next question or completion state
+    F-->>UI: Display feedback or next question
+    C->>UI: Complete interview
+    UI->>F: Request report
+    F->>IS: Aggregate session results
+    IS->>DB: Store performance report
+    F-->>UI: Display report and improvement plan

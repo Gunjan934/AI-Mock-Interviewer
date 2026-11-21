@@ -1,0 +1,16 @@
+sequenceDiagram
+    actor C as Candidate
+    participant UI as Chat UI
+    participant F as Flask Blueprint
+    participant CS as Career Guidance Service
+    participant DB as MySQL 8
+    participant AI as AIService / ModelProvider
+    C->>UI: Enter career question
+    UI->>F: Submit message
+    F->>CS: Validate request and identify context
+    CS->>DB: Read profile, resume summary, job gaps, relevant history
+    CS->>AI: Invoke career-guidance prompt workflow
+    AI-->>CS: Structured or fallback text response
+    CS->>DB: Store user message and assistant response
+    CS-->>F: Return guidance result
+    F-->>UI: Display answer, actions, roadmap, and disclaimer
