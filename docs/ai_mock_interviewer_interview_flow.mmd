@@ -1,30 +1,22 @@
 flowchart TD
-    A[Create session] --> B[Load role, JD, resume facts, rubric]
-    B --> C[Select next question]
-    C --> D[Present question]
-    D --> E[Candidate submits text or voice answer]
-    E --> F{Voice mode?}
-    F -- Yes --> G[ASR transcript + timing features]
-    F -- No --> H[Normalize text + timing]
-    G --> I[Safety and PII checks]
-    H --> I
-    I --> J{Blocked or unsafe?}
-    J -- Yes --> K[Safe re-prompt / human-review flag]
-    J -- No --> L[Extract NLP features]
-    L --> M[Similarity indicator]
-    M --> N[ML prediction]
-    N --> O[NVIDIA LLM rubric explanation]
-    O --> P[Application validates schema and calculates score]
-    P --> Q{Session budget remaining?}
-    Q -- No --> R[Generate final report]
-    Q -- Yes --> S{Answer incomplete or weak?}
-    S -- Yes --> T[Generate targeted follow-up]
-    S -- No --> U[Select next competency question]
-    T --> D
-    U --> D
-    K --> D
-    R --> V[Dashboard trends and recommendations]
-    style A fill:#0f172a,color:#fff
-    style E fill:#2563eb,color:#fff
-    style P fill:#7c3aed,color:#fff
-    style R fill:#059669,color:#fff
+    SETUP[POST /interview/setup — validate role/category/difficulty/source]
+      --> BANK[Bank mode: pick_questions → prepare_initial_turns\nSessionQuestion rows]
+      --> AICREATE[AI mode: prepare_ai_first_question\nNVIDIA generation, validated/deduped, bank fallback]
+      --> START[POST /interview/:id/start — status created → active]
+      --> ROOM[Room — present current question]
+      --> ANSWER[POST /interview/:id/answer — text answer or skip]
+      --> EVAL[evaluate_submission — baseline_v1 + ai_v1 (if enabled) + ML (if enabled)]
+      --> AI?
+    AI? -- yes --> AGENT[advance_ai_interview — agent decide:\nFOLLOW_UP / CLARIFY / NEXT_QUESTION / FINISH]
+    AI? -- no --> ADAPT[pick_adaptive_next — rule-based difficulty swap]
+    AGENT -- FOLLOW_UP or CLARIFY --> INSERT[insert follow-up turn, present it]
+    AGENT -- NEXT_QUESTION --> GENQ[append_next_ai_question — generate next main question]
+    AGENT -- FINISH --> DONE[Finalize — compute_session_score → report]
+    ADAPT --> GENQ
+    INSERT --> ROOM
+    GENQ --> ROOM
+    ANSWER -- skip (AI mode) --> GENQ
+    DONE --> REPORT[GET report / history]
+    style EVAL fill:#7c3aed,color:#fff
+    style AGENT fill:#2563eb,color:#fff
+    style DONE fill:#059669,color:#fff

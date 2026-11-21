@@ -6,21 +6,30 @@
 **Date:** 27 September 2026  
 **Primary audience:** Product, engineering, design, data, security, and QA teams
 
-> **Implementation status (added 6 November 2026 — Phase 2 complete):**
-> The PRD below describes the target product. Current build status:
-> - **§2 items 1–2 (interview plan from role/JD/seniority; adaptive
->   follow-ups): IMPLEMENTED in Phase 2** — NVIDIA NIM dynamic question
->   generation grounded in role + resume/JD context, and an AI interview
->   agent (FOLLOW_UP/CLARIFY/NEXT_QUESTION/FINISH, validated, capped),
->   both with question-bank fallback. Email omitted.
-> - **§2 item 3 (LLM answer analysis): NOT IMPLEMENTED** — scoring remains
->   deterministic `baseline_v1` (explainable keyword/length rubric).
-> - §2 items 4–5: implemented deterministically (resume facts review,
->   progress dashboard).
-> - Voice/speech (ASR/TTS), embeddings, ML scoring: future scope.
-> See `PROJECT_DESCRIPTION.md` §5 for the verified implemented/planned split.
-> Real NVIDIA credentials not yet configured in this environment; live
-> verification is credential-gated (`tests/test_phase2_live.py`).
+> **Implementation status (as of 2026-11-21 — verified in this repository):**
+> - **Phases 1–2 — IMPLEMENTED:** NVIDIA NIM connectivity playground
+>   (`/ai/playground`), dynamic NVIDIA-generated interview questions with
+>   backend validation/dedupe and question-bank fallback, and the AI
+>   interview agent (`FOLLOW_UP`/`CLARIFY`/`NEXT_QUESTION`/`FINISH`, capped
+>   follow-ups, bank fallback). See
+>   `docs/ai_mock_interviewer_architecture.mmd`.
+> - **Phase 3 — AI answer evaluation — IMPLEMENTED:** `ai_v1` structured
+>   rubric evaluation (correctness/relevance/completeness/clarity/practical
+>   understanding; backend-computed weighted overall); `baseline_v1`
+>   preserved as the fallback evaluator.
+> - **Phase 4 — ML evaluator — IMPLEMENTED, disabled by default:** `app/ml`
+>   (TF-IDF + LinearSVC, `ml_v1`). See `docs/ML_EVALUATOR_LINEAR_SVC.md`.
+> - **Phase 6 — RAG — foundation implemented, disabled by default:** `app/rag`
+>   (ChromaDB + sentence-transformers). See `docs/PHASE6_RAG.md`.
+> - **Phase 7 — career guidance chat — IMPLEMENTED:** NVIDIA-backed
+>   `/career-guidance/` chatbot.
+> - **Voice (ASR/TTS) — NOT implemented** (planned).
+>
+> Verified test status: `pytest` — **127 passed, 1 failed** (the live test
+> `tests/test_phase2_live.py::test_live_question_generation` fails because the
+> model response was not a JSON array; live behavior is not yet fully
+> verified). See `PROJECT_DESCRIPTION.md` for the authoritative verified
+> implementation notes (Sections 4–19).
 
 ## 1. Product definition
 
@@ -263,131 +272,58 @@ The admin console shall support:
 
 ## 5. Technical architecture
 
-### 5.1 Recommended stack
+### 5.1 Actual technology stack (as built, 2026-11-21)
 
-| Layer | Recommended technology | Responsibility |
+| Layer | Actual technology | Status |
 | --- | --- | --- |
-| Web client | React with TypeScript, Vite, or Next.js | Candidate and admin interfaces |
-| API gateway | Flask with Flask-RESTX or Flask-Smorest | Thin public API, auth middleware, request validation, rate limiting |
-| Core domain | Django with Django REST Framework | Users, profiles, resumes, sessions, rubrics, admin, permissions |
-| AI orchestration | Flask service or Flask blueprint | Prompt assembly, provider routing, structured generation, guardrails, retries |
-| Async jobs | Celery with Redis or RabbitMQ | Parsing, scoring, exports, batch analytics, notifications |
-| Primary database | PostgreSQL | Transactional data, JSONB for model outputs and versioned artifacts |
-| Cache and rate limits | Redis | Session state, idempotency keys, throttling, short-lived context |
-| Object storage | S3-compatible storage | Original documents, audio, generated exports, redacted transcripts |
-| Search/vector retrieval | PostgreSQL full text first; pgvector when needed | Question retrieval, competency examples, approved knowledge snippets |
-| AI text models | NVIDIA NIM LLM endpoints | Interview generation, evaluation, resume/job analysis |
-| Speech | NVIDIA Speech NIM ASR/TTS or Riva | Streaming transcription and speech synthesis |
-| Safety | NVIDIA NeMo Guardrails plus application validators | Input/output rails, topic boundaries, jailbreak and PII controls |
-| Observability | OpenTelemetry, Prometheus, Grafana, structured logs | Traces, latency, failures, GPU/service health |
-| Deployment | Docker; Kubernetes for production scale | Reproducible services and horizontal scaling |
-| CI/CD | GitHub Actions or equivalent | Tests, scans, migrations, container builds, deployments |
+| Web client | Jinja2 templates + Bootstrap 5 (CDN) + custom CSS/JS + Inter font | Implemented |
+| API layer | Flask 3.1 (blueprints, thin routes, Flask-WTF CSRF) | Implemented |
+| Business logic | `app/services`: evaluation_service, interview_service, resume_service, jd_service, knowledge_service, candidate_context; `app/nlp` | Implemented |
+| AI stack | `app/ai`: `AIService` facade, `NvidiaProvider` (stdlib `urllib`), versioned `prompts.registry`, `question_gen`, `agent`, `answer_eval`, typed `exceptions` | Implemented (Phases 1–3) |
+| Database | MySQL via Flask-SQLAlchemy + PyMySQL; Flask-Migrate/Alembic (6 revisions) | Implemented (primary; SQLite only as backup/test fixture) |
+| Auth | Flask-Login + Werkzeug hashing + Flask-WTF CSRF | Implemented |
+| Optional ML evaluator | `app/ml` — TF-IDF + LinearSVC (`ml_v1`) | Implemented, disabled by default |
+| Optional RAG | `app/rag` — ChromaDB + Sentence Transformers | Foundation implemented, disabled by default |
+| Voice/speech | — (NVIDIA Speech NIM/Riva referenced for future scope) | Not implemented |
 
-### 5.2 Flask/Django boundary
+Dependencies (requirements.txt): Flask 3.1.2, Flask-SQLAlchemy 3.1.1, Flask-Migrate 4.1.0 (Alembic), Flask-Login 0.6.3, Flask-WTF 1.2.2, python-dotenv 1.1.1, pypdf 6.0.0, PyMySQL 1.1.1 (+cryptography), scikit-learn/pandas/numpy/scipy/joblib (Phase 4 ML), chromadb/sentence-transformers (Phase 6 RAG), pytest 8.4.1.
 
-Django shall own the durable business domain and administrative workflows. Flask shall own latency-sensitive AI orchestration and provider-specific logic. Both services shall use the same PostgreSQL database only through carefully owned tables or, preferably, Django-owned domain tables accessed via internal service APIs.
+### 5.2 Actual architecture
 
-The recommended initial topology is:
+Flask is the only application framework. Topology (as built):
 
 ```text
-Browser
-  -> Flask API gateway
-      -> Django domain API
-      -> Flask AI orchestration
-          -> NeMo Guardrails
-          -> NVIDIA NIM LLM
-          -> NVIDIA Speech NIM / Riva
-      -> Celery workers -> PostgreSQL / Redis / Object Storage
+Browser (Jinja2 + Bootstrap 5 + vanilla JS)
+  → Flask application factory (app/__init__.py create_app)
+      → Flask blueprints (app/routes): auth, profile, resume, jd, questions,
+        interview, dashboard, ai, knowledge, career_guidance, errors
+      → Business logic (app/services): evaluation_service, interview_service,
+        resume_service, jd_service, knowledge_service, candidate_context
+      → AI stack (app/ai): AIService → NvidiaProvider → NVIDIA NIM
+      → Optional: app/ml (LinearSVC inference), app/rag (ChromaDB retrieval)
+      → Optional: app/career_guidance services (NVIDIA chat)
+      → SQLAlchemy models (app/models) → MySQL (Flask-SQLAlchemy)
 ```
 
-For a small MVP, Flask can expose the public API and call Django internal endpoints. The public contract must not expose internal model names, provider keys, or raw prompt templates.
+The classic Flask/Django split is not used (see §17.5). Full architecture diagram: `docs/ai_mock_interviewer_architecture.mmd`.
 
-### 5.3 NVIDIA integration strategy
+### 5.3 NVIDIA integration (as built)
 
-NVIDIA NIM LLM exposes an OpenAI-compatible interface with `/v1/chat/completions`, streaming, tool calling, `/v1/models`, health endpoints, metadata, and Prometheus-compatible metrics [1]. The platform shall wrap this behind a `ModelProvider` interface so a model can be changed without changing product code.
+`app/ai/providers/nvidia.py` implements the live provider: `POST https://integrate.api.nvidia.com/v1/chat/completions` (OpenAI-compatible), `Authorization: Bearer NVIDIA_API_KEY` (from `.env`), model from `NVIDIA_CHAT_MODEL`, `response_format: {"type": "json_object"}` in JSON mode. Uses stdlib `urllib` (no SDK). Retries on 408/429/5xx with exponential backoff; strict response parsing. Typed errors (`app/ai/exceptions.py`): `not_configured` (503), `authentication_failed` (500), `rate_limited` (429), `timeout` (504), `connection_failed` (502), `invalid_response` (502), `validation_failed` (502). The API key never appears in responses or logs (credential-free `health()` snapshot with `has_api_key` boolean). The playground endpoint `/ai/playground` (blueprint `app/routes/ai.py`) is authenticated, CSRF-protected, and never changes interview questions or scores.
 
-Suggested provider interface:
+Live connectivity status: `tests/test_phase2_live.py::test_live_question_generation` calls the live NIM; in this environment the model returns a JSON response that fails structured validation ("Expected a JSON array from the model.") — live behavior is not yet fully verified.
 
-```python
-class ModelProvider(Protocol):
-    def generate_structured(
-        self,
-        *,
-        model: str,
-        messages: list[dict],
-        json_schema: dict,
-        temperature: float = 0.2,
-        max_tokens: int = 1200,
-        timeout_s: float = 30.0,
-    ) -> dict: ...
+### 5.4 Speech — not implemented (planned)
 
-    def stream_chat(self, *, model: str, messages: list[dict], **kwargs): ...
+Voice (ASR/TTS) is out of scope for the current build. NVIDIA Speech NIM/Riva remains referenced only as a future option; no speech code paths exist.
 
-    def health(self) -> dict: ...
-```
+### 5.5 Guardrails (as built + planned)
 
-Use environment variables or a secret manager for:
+Application-level guards are implemented: strict JSON validation and schema validation in `app/ai/client.py`; validated, deduped, user-scoped generation in `app/ai/services/question_gen.py`; backend-validated agent decisions in `app/ai/services/agent.py` (per-question follow-up caps, rejection of malformed messages); untrusted-data wrapping in `app/ai/prompts/registry.py`; ownership-filtered routes. NVIDIA NeMo Guardrails remains a planned future layer; no guardrails wiring exists in the current code.
 
-```text
-NVIDIA_API_BASE_URL
-NVIDIA_API_KEY
-NVIDIA_CHAT_MODEL
-NVIDIA_EVAL_MODEL
-NVIDIA_SAFETY_MODEL
-NVIDIA_ASR_BASE_URL
-NVIDIA_TTS_BASE_URL
-```
+### 5.6 Retrieval and context policy (as built)
 
-The application shall record the provider, model alias, model version if available, prompt version, rubric version, latency, token usage if returned, and request correlation ID. It shall not store API keys in the database or logs.
-
-For self-hosted NIM, readiness should be checked with `/v1/health/ready`, available models with `/v1/models`, and operational metrics with `/v1/metrics` [1]. The same adapter should work against NVIDIA-hosted endpoints and self-hosted deployments by changing configuration.
-
-### 5.4 Speech architecture
-
-Voice mode shall use NVIDIA Speech NIM ASR and TTS services. Speech NIM packages a Nemotron model and NVIDIA inference stack into deployable containers with HTTP and gRPC interfaces [2]. NVIDIA documentation describes ASR NIM for speech-to-text and TTS NIM for speech synthesis, including multiple languages and inference modes [2]. Riva remains a compatible deployment option for GPU-accelerated streaming or batch ASR and TTS [3].
-
-Voice flow:
-
-```text
-Browser microphone
-  -> WebSocket/WebRTC media gateway
-  -> ASR service
-  -> transcript segment buffer
-  -> interview orchestrator
-  -> NIM LLM response
-  -> TTS service
-  -> browser audio stream
-```
-
-The system shall store raw audio only when the user opts in. The default stored artifact is the transcript, with deletion controls and retention settings.
-
-### 5.5 Guardrails and safety
-
-NeMo Guardrails provides programmable input, retrieval, dialog, execution, and output rails, with YAML/Colang configuration and Python actions [4]. The platform shall place guardrails before and after model calls and before any tool or export action.
-
-Required rails include:
-
-- Scope rail: keep the conversation about interview preparation.
-- Prompt-injection rail: ignore instructions contained in resumes or job descriptions that attempt to change system behavior.
-- PII rail: detect and mask sensitive data where it is not needed.
-- Harassment and unsafe-content rail.
-- Confidentiality rail: do not request or expose employer secrets.
-- Hallucination/fabrication rail: block resume claims not grounded in confirmed user facts.
-- Output schema rail: reject malformed JSON and retry with a constrained repair prompt.
-
-### 5.6 Retrieval and context policy
-
-The model context shall be assembled from explicitly selected, versioned sources:
-
-1. System policy and interviewer behavior.
-2. Session configuration.
-3. Confirmed candidate profile fields.
-4. Relevant job-description requirements.
-5. Current session transcript window.
-6. Applicable question and rubric metadata.
-7. Approved coaching examples, if enabled.
-
-Raw full resumes and full transcript history shall not be sent on every request when a redacted, summarized, or retrieved context is sufficient. Context limits shall be enforced before inference. The platform shall log which source IDs were included in a generation for explainability.
+Phase 6 RAG (`app/rag`, disabled by default via `RAG_ENABLED=0`): when enabled, documents (PDF/TXT/MD/DOCX, validated uploads) are ingested — text cleaning, paragraph-preferred chunking with overlap and stable IDs, status tracking (PENDING/PROCESSING/COMPLETED/FAILED) — into ChromaDB (`instance/vector_store`, collection `interview_knowledge`, cosine space). Embeddings via sentence-transformers `all-MiniLM-L6-v2` (batch-normalized). Retrieval: query embedding, Top-K + similarity threshold, dedupe, `NO_RELEVANT_CONTEXT` when below threshold. Grounded helpers: `rag_interview_question` (question generation) and `rag_answer_feedback` (feedback) attach results with source attribution to a bounded context (≤6000 chars). Retrieved content is treated as untrusted reference data. UI: `/knowledge/` dashboard + upload + detail/search + RAG playground. See `docs/PHASE6_RAG.md` and `docs/ai_mock_interviewer_architecture.mmd`.
 
 ## 6. API specification
 
@@ -897,6 +833,8 @@ The ML prediction must not be used to make hiring, eligibility, or rejection dec
 
 ### 17.3 Answer similarity and originality indicator
 
+**Status (as of 2026-11-21):** partially implemented — `app/nlp/similarity.distance_to_similarity` converts ChromaDB cosine distance to a 0–1 similarity; exact, TF-IDF/cosine and embedding comparison is future scope (see `docs/PHASE6_RAG.md`).
+
 The platform shall compare an answer against a defined reference collection, such as approved answer examples, the candidate’s prior answers, or instructor-provided material. It shall not claim to detect plagiarism across the entire internet.
 
 The similarity service shall support three levels:
@@ -946,16 +884,17 @@ The preferred implementation is client-side or ephemeral processing using OpenCV
 
 ### 17.5 Reconciliation of the synopsis technology stack
 
-The synopsis lists Flask, MySQL, SQLAlchemy, OpenAI, LangChain, LlamaIndex, Streamlit, Whisper, FAISS/Chroma, and a cloud deployment. Those are reasonable prototype options, but they need to be reconciled with the requested Flask/Django/NVIDIA direction:
+The synopsis lists Flask, MySQL, SQLAlchemy, OpenAI, LangChain, LlamaIndex, Streamlit, Whisper, FAISS/Chroma, and a cloud deployment. The current actual stack is:
 
-- **NVIDIA replaces OpenAI as the required model provider.** Keep the provider adapter so a local or alternate provider can be used for testing, but the production integration is NVIDIA NIM.
-- **Django is added for durable domain features.** Flask remains appropriate for the public/API and AI orchestration layer; Django provides the ORM, admin, authentication integration, and domain workflows.
-- **PostgreSQL is the recommended production database.** MySQL can be used for a constrained academic prototype if the project team already has operational familiarity. The schema should avoid vendor-specific features until the choice is final.
-- **SQLAlchemy is optional.** Use Django ORM for Django-owned tables. Use SQLAlchemy only inside an isolated Flask service if there is a strong reason; do not maintain two competing models for the same tables.
-- **Streamlit is suitable for an experiment or model-evaluation dashboard, not the primary multi-user product UI.** The main application should use React or server-rendered templates with the versioned REST API.
-- **LangChain and LlamaIndex are optional orchestration helpers.** They should not own core business logic. Direct provider adapters, explicit retrieval functions, and versioned prompt contracts are preferred for a small system that must be easy to test.
-- **FAISS or Chroma is acceptable for a local demonstration.** PostgreSQL full-text search and pgvector are preferred when the application needs durable multi-user retrieval.
-- **Whisper is a valid fallback for development.** NVIDIA Speech NIM or Riva should be used for the NVIDIA-aligned deployment path.
+- **NVIDIA replaces OpenAI** as the required model provider. The adapter (`app/ai/providers/nvidia.py`) calls the OpenAI-compatible NIM endpoint over stdlib `urllib` — no OpenAI SDK, no LangChain, no LlamaIndex, no Streamlit.
+- **Flask is the application framework**; the PRD's Flask/Django boundary is not used — Flask blueprints + `app/services` modules (see §5.2).
+- **MySQL is the production database** (Flask-SQLAlchemy + PyMySQL); SQLite is kept only as a preserved backup/test fixture.
+- **SQLAlchemy** is the only ORM (via Flask-SQLAlchemy); "SQLite fallback" claims are false.
+- **Jinja2 + Bootstrap 5 + vanilla JS** is the UI; Streamlit is not used.
+- **FAISS/Chroma:** ChromaDB is the vector store used by the Phase 6 RAG foundation (disabled by default).
+- **Whisper is not used** (voice is planned future scope; NVIDIA Speech NIM/Riva referenced).
+- **Optional `app/ml`** (TF-IDF + LinearSVC) implements the Phase 4 ML evaluator — disabled by default.
+- **Django-specific items** (admin, DRF, ER diagram, Postgres, Celery) are not part of the current build.
 
 ### 17.6 Academic demonstration and evaluation plan
 
@@ -990,7 +929,7 @@ This section converts the product requirements into visual flows. Each diagram i
 
 ### 18.1 Candidate product journey
 
-![Candidate product journey](ai_mock_interviewer_diagrams/01_candidate_journey.png)
+![Candidate product journey](../diagrams/01_candidate_journey.png)
 
 **Product goal:** Move the candidate from “I need to prepare” to “I know what to practice next” through a continuous loop: onboarding → personalized interview → feedback → targeted drill → new interview.
 
@@ -1013,7 +952,7 @@ This section converts the product requirements into visual flows. Each diagram i
 
 ### 18.2 Product architecture and service responsibilities
 
-![Product and system architecture](ai_mock_interviewer_diagrams/02_architecture.png)
+![Product and system architecture](../diagrams/02_architecture.png)
 
 **Product goal:** Keep the user experience simple while allowing the platform to evolve from a college project into a multi-user AI product.
 
@@ -1025,19 +964,18 @@ This section converts the product requirements into visual flows. Each diagram i
 - Loading states must explain whether the system is uploading, transcribing, evaluating, or generating the next question.
 - Errors must preserve the answer and offer retry; a model timeout must not erase user work.
 
-**Engineering ownership:**
+**Engineering ownership (as built):**
 
-- **React/TypeScript:** candidate and admin screens, accessibility, browser audio, dashboard visualizations.
-- **Flask gateway:** public REST contract, authentication middleware, validation, throttling, request IDs.
-- **Django domain service:** users, profiles, resumes, job descriptions, questions, sessions, reports, admin workflows.
-- **Flask AI orchestrator:** context assembly, NeMo Guardrails, NVIDIA provider adapter, structured generation, retries, model telemetry.
-- **Celery workers:** document parsing, embeddings, similarity, long-running evaluations, exports, notifications.
-- **PostgreSQL/Redis/object storage:** durable records, short-lived state, and protected files.
-- **Observability:** trace one user action across API, model call, queue task, database update, and dashboard result.
+- **Jinja2 + Bootstrap 5 + custom CSS/JS:** candidate and admin screens, dashboard visualizations, accessibility.
+- **Flask blueprints (app/routes):** thin authenticated routes — validation, CSRF, form handling.
+- **app/services:** users, profiles, resumes, job descriptions, questions, sessions, reports, dashboard aggregates, RAG ingestion.
+- **app/ai (Flask AI orchestrator):** context assembly, structured generation via `AIService` → `NvidiaProvider` (NVIDIA provider adapter), validation, retries, model telemetry.
+- **Synchronous execution:** no Celery/Redis — parsing, evaluation, and question generation run inline; MySQL (Flask-SQLAlchemy) is the durable store (server required at startup).
+- **Observability:** NVIDIA provider telemetry (latency, typed errors); Flask-Login user sessions.
 
 ### 18.3 Adaptive interview decision flow
 
-![Adaptive interview decision flow](ai_mock_interviewer_diagrams/03_interview_flow.png)
+![Adaptive interview decision flow](../diagrams/03_interview_flow.png)
 
 **Product goal:** Make the interview feel adaptive without allowing the model to behave unpredictably or leave the selected topic, role, or difficulty.
 
@@ -1060,7 +998,7 @@ This section converts the product requirements into visual flows. Each diagram i
 
 ### 18.4 Answer-evaluation and analytics flow
 
-![Answer evaluation pipeline](ai_mock_interviewer_diagrams/04_evaluation_flow.png)
+![Answer evaluation pipeline](../diagrams/04_evaluation_flow.png)
 
 **Product goal:** Explain performance using multiple measurable signals rather than presenting an unexplained LLM score.
 
@@ -1084,7 +1022,7 @@ This section converts the product requirements into visual flows. Each diagram i
 
 ### 18.5 Delivery roadmap and task gates
 
-![Delivery roadmap](ai_mock_interviewer_diagrams/05_roadmap.png)
+![Delivery roadmap](../diagrams/05_roadmap.png)
 
 **Product goal:** Deliver a complete and defensible vertical slice before adding optional multimodal complexity.
 
@@ -1153,43 +1091,40 @@ This project is intended as a personal/college project and six-month industrial-
 - Job-portal integrations.
 - Production billing and subscription management.
 
-### 19.2 Student-friendly technology stack
+### 19.2 Actual student-friendly technology stack
 
-| Concern | Recommended college implementation | Reason |
+| Concern | Actual implementation | Reason |
 | --- | --- | --- |
-| Backend | Django + Django REST Framework | One understandable codebase for auth, models, admin, and APIs |
-| Flask | Small Flask AI service or blueprint only if a clear service boundary is required | Satisfies the Flask requirement without duplicating the whole backend |
-| Frontend | Django templates + Bootstrap + JavaScript, or a small React client | Faster to build and easier to demonstrate than a large frontend platform |
-| Database | SQLite for local development; PostgreSQL for final deployment if available | Low setup cost while keeping a production-ready path |
-| Async jobs | Synchronous MVP first; Celery + Redis only for parsing, audio, or long tasks | Avoid infrastructure overhead until needed |
-| AI | NVIDIA NIM hosted API through one provider adapter | Matches the project requirement and keeps model calls replaceable |
-| NLP | spaCy, scikit-learn, sentence-transformers, NumPy, Pandas | Easy to explain in a viva and suitable for measurable features |
-| Similarity | TF-IDF/cosine plus sentence embeddings | Demonstrates both lexical and semantic comparison |
-| Speech | NVIDIA Speech NIM/Riva or a documented Whisper fallback | Add only after text mode is stable |
-| Visualization | Chart.js or Plotly | Simple dashboard charts with low implementation cost |
-| Files | Local media folder during development; S3-compatible storage only if deployed | Avoid unnecessary cloud configuration for a local college demo |
-| Testing | pytest, Django test framework, Postman collection | Practical API and module validation |
-| Deployment | Gunicorn or Django development server for demonstration; Docker optional | Keep deployment explainable and reproducible |
+| Backend | Flask 3.1 + Flask-SQLAlchemy (MySQL) | Understandable Flask app factory + blueprints |
+| Frontend | Jinja2 templates + Bootstrap 5 (CDN) + custom CSS/JS (vanilla) | Faster to build than a frontend platform |
+| Database | MySQL 5.7+/8.0 (PyMySQL + SQLAlchemy); SQLite only as fixture/backup | Production-ready path with low setup cost |
+| Async jobs | Synchronous MVP (Celery only if needed later) | Avoids infrastructure overhead until needed |
+| AI | NVIDIA NIM hosted API via `app/ai` provider adapter (OpenAI-compatible, stdlib `urllib`) | Matches the NVIDIA direction; no SDK dependency |
+| NLP | `app/nlp` — deterministic preprocessing (HTML/NFKC/whitespace, technical-vocab preserving) + similarity helpers | Easy to explain in a viva |
+| Optional ML | `app/ml` — TF-IDF + LinearSVC (`ml_v1`), disabled by default | Single-model baseline, no LR/RF ambiguity |
+| Optional RAG | `app/rag` — ChromaDB + sentence-transformers, disabled by default | Optional knowledge base |
+| Visualization | SVG + Bootstrap UI, no charting library | Simple dashboard without extra deps |
+| Files | Local `uploads/` folder during development | Low setup cost |
+| Testing | pytest (127 passed, 1 failed live test) | Practical module/integration validation |
 
-### 19.3 Simplified application architecture
+### 19.3 Actual application architecture
 
-For the college implementation, use a Django-centered modular monolith:
+The app is a Flask modular monolith (as built in `app/`):
 
 ```text
 Browser
-  -> Django + DRF application
-      -> Interview module
-      -> Resume/JD module
-      -> Dashboard module
-      -> AI adapter
-          -> NeMo Guardrails (lightweight safety checks)
-          -> NVIDIA NIM LLM
-          -> Optional Speech NIM/Riva
-      -> SQLite/PostgreSQL
-      -> Optional local media storage
+  → Flask app factory (app/__init__.py create_app)
+      → Blueprints (app/routes): auth, profile, resume, jd, questions, interview,
+        dashboard, ai, knowledge, career_guidance, errors
+      → Business logic (app/services): evaluation_service, interview_service,
+        resume_service, jd_service, knowledge_service, candidate_context
+      → AI (app/ai): AIService → NvidiaProvider → NVIDIA NIM
+      → Optional: app/ml (LinearSVC), app/rag (ChromaDB)
+      → Optional: app/career_guidance services (NVIDIA chat)
+      → SQLAlchemy models (app/models) → MySQL
 ```
 
-Use Flask as a separate AI microservice only if the team must demonstrate independent Flask integration. Do not create separate services for every module. A single repository, one database, one deployable application, and one NVIDIA adapter are preferred.
+Full architecture diagram: `docs/ai_mock_interviewer_architecture.mmd`. No Celery, Redis, or separate services.
 
 ### 19.4 Six-month academic execution plan
 

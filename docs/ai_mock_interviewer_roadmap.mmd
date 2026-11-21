@@ -1,17 +1,19 @@
 gantt
-    title AI Mock Interviewer six-month college project roadmap
+    title AI Mock Interviewer implementation roadmap (as of 2026-11-21)
     dateFormat  YYYY-MM-DD
     axisFormat  %b %d
-    section Month 1
-    Problem, literature, UX flows, rubrics :done, p1, 2026-07-01, 21d
-    Architecture, ER diagram, NVIDIA proof of concept :p2, after p1, 21d
-    section Month 2
-    Django/Flask setup, auth, profile, question bank :p3, after p2, 28d
-    section Month 3
-    Text interview engine and adaptive follow-ups :p4, after p3, 28d
-    section Month 4
-    NLP features, similarity, ML baseline :p5, after p4, 28d
-    section Month 5
-    Resume/JD analysis, dashboard, optional voice :p6, after p5, 28d
-    section Month 6
-    Testing, benchmark, documentation, final demo :p7, after p6, 28d
+    section Months 1–3 — done
+    Candidate journeys, auth, profile, resume, JD, question bank, bank interviews :done, m1, 2026-07-01, 84d
+    NVIDIA Playground (/ai/playground) :done, p1, 2026-11-06, 3d
+    Phase 2 — dynamic AI questions + AI agent :done, p2, 2026-11-06, 3d
+    Phase 7 — career guidance chat :done, cg, 2026-11-20, 1d
+    section Month 4 — done
+    AI answer evaluation (ai_v1, backend-computed weighted overall) :done, p3, 2026-11-06, 3d
+    Phase 4 — ML evaluator (LinearSVC, ml_v1, disabled by default) :done, m4, 2026-11-10, 1d
+    section Month 5 — in progress
+    Phase 6 — RAG knowledge base (ChromaDB, disabled by default) :active, r6, 2026-11-15, 7d
+    section Month 6 — done
+    Testing, benchmark, documentation, final demo :done, m6, 2026-11-06, 3d
+    section Future scope (planned)
+    Voice (ASR/TTS) :crit, voice, 2026-12-01, 45d
+    ML-powered scoring, embeddings, voice answers, anti-copy, analytics :crit, f4, 2027-03-01, 60d

@@ -4,6 +4,10 @@ An integrated, authenticated career assistant. It is an addition to the existing
 application, not a replacement: interview generation, answer evaluation, RAG,
 NVIDIA question generation and all existing data are unchanged.
 
+**Status (as of 2026-11-21):** implemented and live — NVIDIA-backed chatbot.
+See `docs/ai_mock_interviewer_architecture.mmd` for the architecture and
+`docs/ai_mock_interviewer_roadmap.mmd` for the roadmap.
+
 ## Architecture
 
 ```

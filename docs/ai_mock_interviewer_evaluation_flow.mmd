@@ -1,28 +1,13 @@
 flowchart LR
-    A[Answer text or transcript] --> B[Normalize\ncleaning, sentences, tokens]
-    B --> C[Feature extraction]
-    C --> C1[Keywords and entities]
-    C --> C2[Embeddings]
-    C --> C3[Answer length and timing]
-    C --> C4[Filler and speech rate]
-    C --> D[Reference comparison]
-    D --> D1[Exact phrase]
-    D --> D2[TF-IDF cosine]
-    D --> D3[Embedding similarity]
-    C --> E[Rubric signals]
-    E --> E1[Relevance]
-    E --> E2[Technical correctness]
-    E --> E3[Completeness]
-    E --> E4[Structure and evidence]
-    C4 --> F[ML model\nLR / SVM / Random Forest]
-    D --> F
-    E --> F
-    F --> G[NVIDIA LLM explanation]
-    G --> H[Schema validation]
-    H --> I[Application score aggregation]
-    I --> J[Feedback, next question, dashboard]
-    style A fill:#2563eb,color:#fff
+    A[Answer text + session metadata]
+    A --> B[normalize_text — HTML/NFKC/whitespace; preserve C++, #, .NET]
+    B --> C[Feature extraction — keywords, word count]
+    C --> D[baseline_v1 — relevance, keyword_coverage, completeness, overall]
+    C --> E[ai_v1 — NvidiaProvider → NVIDIA: correctness / relevance / completeness / clarity / practical_understanding]
+    D/E --> F[Optional ML — LinearSVC prediction attached to details['ml_evaluation']; never changes primary scores]
+    F --> G[Store — CandidateAnswer + AnswerEvaluation (evaluator_version, details)]
+    G --> H[UI — flash + previous-answer strip + report dimension bars]
+    G --> I[Next move — AI agent FOLLOW_UP/CLARIFY or rule-based adaptive]
+    style E fill:#76b900,color:#fff
     style F fill:#f59e0b,color:#111827
-    style G fill:#76b900,color:#fff
-    style I fill:#7c3aed,color:#fff
-    style J fill:#059669,color:#fff
+    style G fill:#7c3aed,color:#fff

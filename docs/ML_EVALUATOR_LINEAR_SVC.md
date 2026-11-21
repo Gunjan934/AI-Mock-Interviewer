@@ -5,6 +5,11 @@ older three-model (Logistic Regression / Linear SVM / Random Forest) trainer and
 the standalone Keras ANN experiment were archived in
 `archive/previous_evaluators/` and are not imported by the application.
 
+**Status (as of 2026-11-21):** implemented, **disabled by default**
+(`ML_ANSWER_EVALUATION_ENABLED=0`). Runtime inference (`app/ml/predictor.py`)
+produces `evaluator_kind: "ml_v1"` predictions attached to evaluation details
+without changing primary scores.
+
 ## 1. Files
 
 | Path | Role |

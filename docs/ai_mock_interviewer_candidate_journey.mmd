@@ -1,27 +1,14 @@
 flowchart TD
-    A[Landing page] --> B[Register / Login]
-    B --> C[Onboarding: role, seniority, language]
-    C --> D{Resume available?}
-    D -- Yes --> E[Upload resume]
-    D -- No --> F[Create profile manually]
-    E --> G[Parse and review extracted facts]
-    F --> H[Confirm candidate profile]
-    G --> H
-    H --> I{Job description available?}
-    I -- Yes --> J[Paste or upload job description]
-    I -- No --> K[Choose role template]
-    J --> L[Requirement and skill-gap analysis]
-    K --> M[Create preparation plan]
-    L --> M
-    M --> N[Configure mock interview]
-    N --> O[Text or voice interview]
-    O --> P[Adaptive questions and follow-ups]
-    P --> Q[Answer evaluation and feedback]
-    Q --> R[Session report]
-    R --> S[Dashboard: trends and weak skills]
-    S --> T[Targeted drill / resume improvement]
-    T --> O
-    style A fill:#0f172a,color:#fff
-    style O fill:#2563eb,color:#fff
-    style Q fill:#7c3aed,color:#fff
-    style S fill:#059669,color:#fff
+    L[Landing → Register / Login]
+    L --> P[Profile — /profile view/edit]
+    L --> R[Resume — PDF upload → pypdf → facts review/confirm]
+    L --> J[Job Match — /jd save → extract → analyse → match %]
+    L --> B[Question Bank — /questions]
+    P/R/J --> S[Interview Setup — /interview/setup bank | AI]
+    S --> I[Interview Room — ask → answer → skip/pause/end]
+    I --> RP[Session Report]
+    RP --> D[Dashboard — history + aggregates]
+    D --> C[Career Guidance — NVIDIA chat]
+    D --> K[Knowledge Base — upload/search (RAG, disabled by default)]
+    style I fill:#2563eb,color:#fff
+    style D fill:#059669,color:#fff

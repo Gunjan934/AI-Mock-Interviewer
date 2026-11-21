@@ -1,7 +1,7 @@
 # Phase 6 — RAG-Based Knowledge Retrieval and Grounded AI Interviewing
 
 ## Status
-**IN PROGRESS / PARTIALLY IMPLEMENTED (initial foundation added, verification pending).** RAG is disabled by default (`RAG_ENABLED=0`).
+**IN PROGRESS / PARTIALLY IMPLEMENTED (initial foundation added, verification pending — status as of 2026-11-21).** RAG is disabled by default (`RAG_ENABLED=0`).
 
 ## Architecture
 - **Independent module:** `app/rag/` (config, document loader, text cleaner, chunking, embedding service, persistent ChromaDB vector store, retriever, context builder, RAG service/exceptions).
