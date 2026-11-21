@@ -1,0 +1,30 @@
+flowchart TD
+    A[Create session] --> B[Load role, JD, resume facts, rubric]
+    B --> C[Select next question]
+    C --> D[Present question]
+    D --> E[Candidate submits text or voice answer]
+    E --> F{Voice mode?}
+    F -- Yes --> G[ASR transcript + timing features]
+    F -- No --> H[Normalize text + timing]
+    G --> I[Safety and PII checks]
+    H --> I
+    I --> J{Blocked or unsafe?}
+    J -- Yes --> K[Safe re-prompt / human-review flag]
+    J -- No --> L[Extract NLP features]
+    L --> M[Similarity indicator]
+    M --> N[ML prediction]
+    N --> O[NVIDIA LLM rubric explanation]
+    O --> P[Application validates schema and calculates score]
+    P --> Q{Session budget remaining?}
+    Q -- No --> R[Generate final report]
+    Q -- Yes --> S{Answer incomplete or weak?}
+    S -- Yes --> T[Generate targeted follow-up]
+    S -- No --> U[Select next competency question]
+    T --> D
+    U --> D
+    K --> D
+    R --> V[Dashboard trends and recommendations]
+    style A fill:#0f172a,color:#fff
+    style E fill:#2563eb,color:#fff
+    style P fill:#7c3aed,color:#fff
+    style R fill:#059669,color:#fff

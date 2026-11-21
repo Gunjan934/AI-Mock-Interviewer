@@ -1,0 +1,46 @@
+flowchart LR
+    subgraph UX[User Experience]
+        WEB[React / TypeScript web app]
+        AUDIO[Browser microphone and audio player]
+    end
+    subgraph API[Application Services]
+        GATE[Flask API gateway\nAuth, validation, rate limits]
+        DOMAIN[Django domain service\nUsers, resumes, sessions, admin]
+        AI[Flask AI orchestrator\nPrompts, routing, retries]
+        JOBS[Celery workers\nParsing, scoring, exports]
+    end
+    subgraph DATA[Data and Platform]
+        DB[(PostgreSQL)]
+        CACHE[(Redis)]
+        OBJ[(Object storage)]
+        OBS[OpenTelemetry\nPrometheus / Grafana]
+    end
+    subgraph NVIDIA[NVIDIA AI Services]
+        GUARD[NeMo Guardrails]
+        LLM[NIM LLM\nChat completions / streaming]
+        ASR[Speech NIM / Riva ASR]
+        TTS[Speech NIM / Riva TTS]
+    end
+    WEB --> GATE
+    AUDIO --> GATE
+    GATE --> DOMAIN
+    GATE --> AI
+    DOMAIN --> DB
+    DOMAIN --> OBJ
+    AI --> GUARD --> LLM
+    AUDIO --> ASR --> AI
+    AI --> TTS --> AUDIO
+    AI --> CACHE
+    AI --> DB
+    JOBS --> DB
+    JOBS --> OBJ
+    GATE --> OBS
+    DOMAIN --> OBS
+    AI --> OBS
+    LLM --> OBS
+    style GATE fill:#2563eb,color:#fff
+    style DOMAIN fill:#0f766e,color:#fff
+    style AI fill:#7c3aed,color:#fff
+    style LLM fill:#76b900,color:#fff
+    style ASR fill:#76b900,color:#fff
+    style TTS fill:#76b900,color:#fff

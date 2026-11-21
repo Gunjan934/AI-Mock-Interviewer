@@ -1,0 +1,28 @@
+flowchart LR
+    A[Answer text or transcript] --> B[Normalize\ncleaning, sentences, tokens]
+    B --> C[Feature extraction]
+    C --> C1[Keywords and entities]
+    C --> C2[Embeddings]
+    C --> C3[Answer length and timing]
+    C --> C4[Filler and speech rate]
+    C --> D[Reference comparison]
+    D --> D1[Exact phrase]
+    D --> D2[TF-IDF cosine]
+    D --> D3[Embedding similarity]
+    C --> E[Rubric signals]
+    E --> E1[Relevance]
+    E --> E2[Technical correctness]
+    E --> E3[Completeness]
+    E --> E4[Structure and evidence]
+    C4 --> F[ML model\nLR / SVM / Random Forest]
+    D --> F
+    E --> F
+    F --> G[NVIDIA LLM explanation]
+    G --> H[Schema validation]
+    H --> I[Application score aggregation]
+    I --> J[Feedback, next question, dashboard]
+    style A fill:#2563eb,color:#fff
+    style F fill:#f59e0b,color:#111827
+    style G fill:#76b900,color:#fff
+    style I fill:#7c3aed,color:#fff
+    style J fill:#059669,color:#fff
